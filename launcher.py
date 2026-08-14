@@ -71,6 +71,45 @@ def get_runtime_dir():
         return alt
 
 
+def find_npx(node_exe):
+    """在 node 同目录或 PATH 中定位 npx 可执行文件。"""
+    node_dir = os.path.dirname(node_exe)
+
+    # 1) 同目录下找 npx.cmd / npx / npx-cli.js（标准安装）
+    for candidate in ("npx.cmd", "npx", "npx-cli.js"):
+        p = os.path.join(node_dir, candidate)
+        if os.path.exists(p):
+            return p
+
+    # 2) 父目录（有些安装 node 在 bin/ 子目录里）
+    parent = os.path.dirname(node_dir.rstrip("/\\"))
+    for candidate in ("npx.cmd", "npx", "npx-cli.js"):
+        p = os.path.join(parent, candidate)
+        if os.path.exists(p):
+            return p
+
+    # 3) 系统 PATH 中查找
+    system_npx = shutil.which("npx")
+    if system_npx:
+        return system_npx
+
+    # 4) 通过 node 找到 npm 全局前缀，再从中找 npx
+    try:
+        prefix = subprocess.check_output(
+            [node_exe, "-e", "console.log(require('path').dirname(require('process').execPath))"],
+            text=True, timeout=5
+        ).strip()
+        for sub in ("", "node_modules", "..", "node_modules/npm"):
+            for cand in ("npx.cmd", "npx", "bin/npx.cmd"):
+                p = os.path.join(prefix, sub, cand)
+                if os.path.exists(p):
+                    return p
+    except Exception:
+        pass
+
+    return None
+
+
 def find_node():
     node = shutil.which("node")
     if node:
@@ -258,15 +297,22 @@ class LauncherApp:
 
     def start_dsh(self, node):
         node_dir = os.path.dirname(node)
-        npx_cli = os.path.join(node_dir, "npx-cli.js")
+        npx = find_npx(node)
 
         env = os.environ.copy()
         env["PATH"] = node_dir + os.pathsep + env.get("PATH", "")
 
-        if os.path.exists(npx_cli):
-            cmd = [node, npx_cli, PKG_NAME, "web"]
+        if not npx:
+            self.append_log("错误：找不到 npx，请确保 Node.js 安装完整。")
+            return
+
+        # 判断是 .js 脚本还是 .cmd / 可执行文件
+        if npx.endswith(".js"):
+            cmd = [node, npx, PKG_NAME, "web"]
         else:
-            cmd = ["npx", PKG_NAME, "web"]
+            cmd = [npx, PKG_NAME, "web"]
+
+        self.append_log(f"启动命令：{' '.join(cmd)}")
 
         self.proc = subprocess.Popen(
             cmd, env=env, cwd=get_base_dir(),
