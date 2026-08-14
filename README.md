@@ -1,54 +1,63 @@
-# DSH Launcher
+<h1 align="center">DeepSeek Harness Launcher</h1>
 
-> **DeepSeek Harness** 一键启动器 —— 下载即用，无需记命令
+<p align="center">
+  <b>一键启动 DeepSeek Harness 的 Windows 桌面应用</b><br/>
+  下载 → 双击 → 自动打开，无需手动安装 Node.js
+</p>
 
-让任何人都能双击启动 DeepSeek Harness，不用折腾 Node.js 命令行。
+---
 
-## ✨ 特性
+## 🚀 三步使用（普通用户）
 
-- 🪟 Windows 双击 `dsh.bat` 即可运行
-- 🍎 Mac / Linux 终端运行 `./dsh.sh`
-- 🔍 自动检测 Node.js 环境，缺失时给出安装指引
-- 🚀 首次运行自动通过 npx 下载依赖
+1. 到 **[Releases](https://github.com/Edgarzwj/DeepSeek-Harness-Launcher/releases)** 页面下载 `DeepSeek-Harness-Launcher.exe`
+2. **双击** 打开它
+3. 等待浏览器自动弹出 `http://127.0.0.1:3000` —— 完事！
 
-## 🚀 快速开始
+> 首次运行会自动下载并安装 Node.js（放在程序旁边的 `runtime` 文件夹里，不影响系统），
+> 之后再次打开会直接秒启。无需任何命令行操作。
 
-### Windows 用户
+---
 
-1. **安装 [Node.js LTS](https://nodejs.org/)**（如果还没装）
-2. 双击 `dsh.bat`
-3. 浏览器自动打开 `http://127.0.0.1:3000`
+## ❓ 这是什么？
 
-### Mac / Linux 用户
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（dsh）是 DeepSeek 官方开源的 **智能体框架（agent harness）**，
+采用"一切皆插件"的架构，由 [Cordis](https://github.com/deepseek-ai/cordis) 驱动。
 
-1. **安装 Node.js**（如果还没装）
-   - macOS: `brew install node`
-   - Linux: 参考 https://nodejs.org/
-2. 终端执行：
-   ```bash
-   chmod +x dsh.sh
-   ./dsh.sh
-   ```
-3. 浏览器自动打开 `http://127.0.0.1:3000`
+它原本需要用命令行运行：
 
-## 📖 DeepSeek Harness 是什么？
+```bash
+npx @deepseek-ai/dsh web
+```
 
-DeepSeek Harness（dsh）是 [DeepSeek AI](https://github.com/deepseek-ai) 开发的开源 **agent harness（智能体框架）**。
+**本项目把它包装成了一个真正的 Windows 桌面应用（.exe）**，让不懂命令行的朋友也能一键使用。
 
-它采用一切皆插件的架构，由 [Cordis](https://github.com/deepseek-ai/cordis) 驱动。
+---
 
-📄 官方文档：https://github.com/deepseek-ai/deepseek-harness
+## 🧩 技术说明
 
-## ⚠️ 注意事项
+| 项目 | 说明 |
+|------|------|
+| 启动方式 | 双击 `DeepSeek-Harness-Launcher.exe` |
+| Node.js | 首次运行自动下载便携版（无需管理员权限，不污染系统） |
+| 实际命令 | `npx @deepseek-ai/dsh web` |
+| 默认地址 | `http://127.0.0.1:3000` |
+| 关闭方式 | 关闭启动器窗口即可停止服务 |
 
-- 首次运行需要联网下载包（约几十 MB），之后会有缓存
-- 默认端口为 `3000`，如被占用可手动运行 `npx @deepseek-ai/dsh web --port <端口号>`
-- 需要 Node.js >= 18
+---
+
+## 🛠 开发者：从源码构建
+
+需要本地有 Python 3.10+：
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --name "DeepSeek-Harness-Launcher" launcher.py
+```
+
+生成的 `dist/DeepSeek-Harness-Launcher.exe` 即为可分发的单文件应用。
+
+---
 
 ## 📜 License
 
 MIT
-
----
-
-**启动器本身零依赖，仅调用官方 `npx @deepseek-ai/dsh web` 命令。**
