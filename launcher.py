@@ -35,7 +35,10 @@ NODE_INDEX_URL = "https://nodejs.org/dist/index.json"
 NODE_FALLBACK_VERSION = "v20.18.1"
 PKG_NAME = "@deepseek-ai/dsh"
 SINGLE_INSTANCE_PORT = 39170
-DSH_PORT_SCAN_RANGE = range(3000, 3100)
+# 与官方 DeepSeek Harness web 默认端口保持一致（参考文档：serves http://127.0.0.1:3080 by default）。
+# 主动指定该端口，启动器即可精确打开，无需依赖官方输出格式或被动扫描端口。
+DSH_PORT = 3080
+DSH_PORT_SCAN_RANGE = range(3000, 3300)  # 兜底扫描范围，覆盖 3080 及周边
 
 # 匹配 dsh 输出中的监听地址（如 http://localhost:3080 或 http://127.0.0.1:3080）
 URL_RE = re.compile(r"https?://[a-zA-Z0-9.\-]+:(\d+)", re.IGNORECASE)
@@ -243,11 +246,11 @@ class LauncherApp:
             self.log(f"Node.js: {node}")
 
             # 3. 启动 dsh
-            self.set_status("正在启动 DeepSeek Harness ...")
+            self.set_status("正在启动 DeepSeek Harness ...（首次会下载并初始化，请稍候）")
             self.start_dsh(node)
 
-            # 4. 探测端口并打开浏览器
-            url = self.wait_for_url(timeout=180)
+            # 4. 探测端口并打开浏览器（首次初始化/下载可能较慢，放宽超时）
+            url = self.wait_for_url(timeout=420)
             if url:
                 self.server_url = url
                 self.set_status(f"✅ 已启动：{url}", "#1a8a3c")
@@ -286,7 +289,10 @@ class LauncherApp:
         node_dir = os.path.dirname(node)
         env = os.environ.copy()
         env["PATH"] = node_dir + os.pathsep + env.get("PATH", "")
-        cmd = [node, npx, PKG_NAME, "web"] if npx.endswith(".js") else [npx, PKG_NAME, "web"]
+        # 主动指定端口（与官方默认一致），并用 --no-open 关闭官方自带浏览器打开，
+        # 改由本启动器统一打开，避免双重弹窗以及「官方输出格式变化导致检测不到地址」的问题。
+        dsh_args = [PKG_NAME, "web", "--no-open", "--port", str(DSH_PORT)]
+        cmd = [node, npx] + dsh_args if npx.endswith(".js") else [npx] + dsh_args
         self.log(f"命令：{' '.join(cmd)}")
 
         self.proc = subprocess.Popen(
@@ -307,17 +313,21 @@ class LauncherApp:
 
         threading.Thread(target=_pump, daemon=True).start()
 
-    def wait_for_url(self, timeout=180):
+    def wait_for_url(self, timeout=420):
         deadline = time.time() + timeout
+        # 已知端口优先（已由 --port 显式指定），无需依赖 stdout 解析或端口扫描
+        candidates = []
+        if self.server_url:
+            candidates.append(self.server_url)
+        candidates.append(f"http://127.0.0.1:{DSH_PORT}")
         while time.time() < deadline and self.running:
-            # 优先用 dsh 输出的地址
-            if self.server_url:
+            for url in candidates:
                 try:
-                    urllib.request.urlopen(self.server_url, timeout=1.5)
-                    return self.server_url
+                    urllib.request.urlopen(url, timeout=1.5)
+                    return url
                 except Exception:
                     pass
-            # 兜底：扫描端口
+            # 兜底：扫描端口范围，兼容旧版或自定义端口
             for port in DSH_PORT_SCAN_RANGE:
                 try:
                     with urllib.request.urlopen(f"http://127.0.0.1:{port}", timeout=0.4):
@@ -325,7 +335,8 @@ class LauncherApp:
                 except Exception:
                     continue
             time.sleep(1.5)
-        return self.server_url
+        # 即便超时未连上，也返回已知地址，便于用户手动打开
+        return self.server_url or f"http://127.0.0.1:{DSH_PORT}"
 
     def stop(self):
         self.running = False
